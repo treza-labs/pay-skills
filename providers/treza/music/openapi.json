@@ -204,6 +204,28 @@
           },
           "202": {
             "description": "Only when the body has \"async\": true or the request carries Prefer: respond-async: payment settled and generation started. Poll statusUrl until status leaves running.",
+            "headers": {
+              "X-Status-Url": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "The statusUrl, the same as in the body."
+              },
+              "Location": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "The statusUrl again, in the header HTTP clients read on a 202. GET it to collect the result."
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds to wait before polling the statusUrl."
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -460,7 +482,29 @@
             "description": "The retry started and the response waited for it, streamed the same way as the paid POST. Same shape as the paid POST 200, plus retryOf and paidUsd 0."
           },
           "202": {
-            "description": "Only with \"async\": true or Prefer: respond-async: the retry started."
+            "description": "Only with \"async\": true or Prefer: respond-async: the retry started.",
+            "headers": {
+              "X-Status-Url": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "The statusUrl, the same as in the body."
+              },
+              "Location": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "The statusUrl again, in the header HTTP clients read on a 202. GET it to collect the result."
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds to wait before polling the statusUrl."
+              }
+            }
           },
           "400": {
             "description": "runId and token are required, or the prompt sent is empty or too long"

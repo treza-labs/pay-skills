@@ -27,7 +27,7 @@
           }
         },
         "summary": "Generate a finished narrated short from a topic, via x402",
-        "description": "Send a topic; get a finished 30-second vertical short: a written script, four scenes, an ElevenLabs narrator, a music bed, word-by-word captions and callout cards, plus a title and description to post it with. style motion ($3.22) animates each scene with Google Veo 3.1 Lite; stills ($0.87) edits the scenes' stills with a slow push-in. Pay via the x402 protocol (HTTP 402), in USDC on Base (eip155:8453) or Solana mainnet; no account, API key, or signup. A short takes three to five minutes: the paid call answers 200 at once with the statusUrl in X-Status-Url, waits up to 45 seconds (Prefer: wait=N for up to 720), then ends with status success and video, or status running and the statusUrl to poll. If a step fails part way (a scene the video model refuses), the steps that ran are charged, the rest of the payment stays on the wallet balance, and the free retry resumes the run, re-rendering only what failed.",
+        "description": "Send a topic; get a finished 30-second vertical short: a written script, four scenes, an ElevenLabs narrator, a music bed, word-by-word captions and callout cards, plus a title and description to post it with. style motion ($3.22) animates each scene with Google Veo 3.1 Lite; stills ($0.87) edits the scenes' stills with a slow push-in. Pay via the x402 protocol (HTTP 402), in USDC on Base (eip155:8453) or Solana mainnet; no account, API key, or signup. A short takes three to five minutes: the paid call answers 200 at once with the statusUrl in X-Status-Url, waits about as long as that style usually takes (Prefer: wait=N for up to 720), then ends with status success and video, or status running and the statusUrl to poll. If a step fails part way (a scene the video model refuses), the steps that ran are charged, the rest of the payment stays on the wallet balance, and the free retry resumes the run, re-rendering only what failed.",
         "parameters": [
           {
             "name": "Prefer",
@@ -207,7 +207,29 @@
             }
           },
           "202": {
-            "description": "Only with \"async\": true or Prefer: respond-async: payment settled and the short started. Poll statusUrl."
+            "description": "Only with \"async\": true or Prefer: respond-async: payment settled and the short started. Poll statusUrl.",
+            "headers": {
+              "X-Status-Url": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "The statusUrl, the same as in the body."
+              },
+              "Location": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "The statusUrl again, in the header HTTP clients read on a 202. GET it to collect the result."
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds to wait before polling the statusUrl."
+              }
+            }
           },
           "400": {
             "description": "Missing or oversized topic, a style or voice not on the menu, or a field this endpoint does not read. Refused before settlement, so nothing was charged."
@@ -426,7 +448,29 @@
             "description": "The retry started and the response waited for it, streamed like the paid POST."
           },
           "202": {
-            "description": "Only with \"async\": true or Prefer: respond-async."
+            "description": "Only with \"async\": true or Prefer: respond-async.",
+            "headers": {
+              "X-Status-Url": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "The statusUrl, the same as in the body."
+              },
+              "Location": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "The statusUrl again, in the header HTTP clients read on a 202. GET it to collect the result."
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds to wait before polling the statusUrl."
+              }
+            }
           },
           "400": {
             "description": "runId and token are required, or the topic sent is empty or too long"

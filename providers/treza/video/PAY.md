@@ -24,11 +24,13 @@ Solana mainnet or on Base; no account or API key is involved.
 - Buy the shortest length that covers the shot; price scales with seconds.
 - For image-to-video, leave `model` unset to get the cheapest model that takes
   an image at the requested length.
-- Generation takes longer than many HTTP clients wait. The paid call answers
-  200 at once with a statusUrl in the `X-Status-Url` header and waits up to 45
-  seconds by default; send `Prefer: wait=N` (up to 720) to wait longer, or keep
-  the statusUrl and poll it with GET. A reply with `status: running` means the
-  file is still rendering and is already paid for, not that the call failed.
-  Never buy the same request again to get the result.
+- Generation takes minutes, longer than many HTTP clients wait. The paid call
+  answers 200 at once with a statusUrl in the `X-Status-Url` header and waits
+  about as long as that render usually takes; send `Prefer: wait=N` (up to
+  720) to set the wait, or `Prefer: respond-async` for a 202 whose `Location`
+  header is the statusUrl. A reply with `status: running` means the file is
+  still rendering and is already paid for, not that the call failed: GET the
+  statusUrl, runId and token included, to collect it. Never buy the same
+  request again to get the result.
 - A failed render is not charged. Its status body carries a `retryUrl` that
   runs it once more on the same payment.

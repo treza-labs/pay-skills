@@ -27,7 +27,7 @@
           }
         },
         "summary": "Generate a captioned short from a YouTube video, via x402",
-        "description": "Send a YouTube link; get its most shareable 30 to 60 second moment back as a captioned clip reframed on the speaker (9:16 by default, or 4:5, 1:1, 16:9), with a title and caption to post it with. Priced by the source's length: the video is looked up before payment, the 402 quotes the exact price for it ($0.04 for a minute or less, $0.45 for an hour, up to 2 hours), and a video that cannot be clipped (private, age-restricted, live, missing, too long) is refused with a 400 and a code before any payment moves. Only YouTube video links are accepted. Pay via the x402 protocol (HTTP 402), in USDC on Base (eip155:8453) or Solana mainnet; no account, API key, or signup. A clip takes a few minutes: the paid call answers 200 at once with the statusUrl in X-Status-Url, waits up to 45 seconds (Prefer: wait=N for up to 720), then ends with status success and video, or status running and the statusUrl to poll. Clip only videos you have the rights to use.",
+        "description": "Send a YouTube link; get its most shareable 30 to 60 second moment back as a captioned clip reframed on the speaker (9:16 by default, or 4:5, 1:1, 16:9), with a title and caption to post it with. Priced by the source's length: the video is looked up before payment, the 402 quotes the exact price for it ($0.04 for a minute or less, $0.45 for an hour, up to 2 hours), and a video that cannot be clipped (private, age-restricted, live, missing, too long) is refused with a 400 and a code before any payment moves. Only YouTube video links are accepted. Pay via the x402 protocol (HTTP 402), in USDC on Base (eip155:8453) or Solana mainnet; no account, API key, or signup. A clip takes a few minutes: the paid call answers 200 at once with the statusUrl in X-Status-Url, waits about as long as a clip from that length of source usually takes (Prefer: wait=N for up to 720), then ends with status success and video, or status running and the statusUrl to poll. Clip only videos you have the rights to use.",
         "parameters": [
           {
             "name": "Prefer",
@@ -191,7 +191,29 @@
             }
           },
           "202": {
-            "description": "Only with \"async\": true or Prefer: respond-async: payment settled and the clip started. Poll statusUrl."
+            "description": "Only with \"async\": true or Prefer: respond-async: payment settled and the clip started. Poll statusUrl.",
+            "headers": {
+              "X-Status-Url": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "The statusUrl, the same as in the body."
+              },
+              "Location": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "The statusUrl again, in the header HTTP clients read on a 202. GET it to collect the result."
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds to wait before polling the statusUrl."
+              }
+            }
           },
           "400": {
             "description": "Not a single YouTube video link (code SOURCE_URL_INVALID), a video that cannot be clipped (codes SOURCE_UNAVAILABLE, SOURCE_LIVE, SOURCE_TOO_SHORT, SOURCE_TOO_LONG), an aspect ratio not on sale, or a field this endpoint does not read. Refused before settlement, so nothing was charged."
@@ -412,7 +434,29 @@
             "description": "The retry started and the response waited for it, streamed like the paid POST."
           },
           "202": {
-            "description": "Only with \"async\": true or Prefer: respond-async."
+            "description": "Only with \"async\": true or Prefer: respond-async.",
+            "headers": {
+              "X-Status-Url": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "The statusUrl, the same as in the body."
+              },
+              "Location": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "The statusUrl again, in the header HTTP clients read on a 202. GET it to collect the result."
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds to wait before polling the statusUrl."
+              }
+            }
           },
           "400": {
             "description": "runId and token are required, or the url sent is not a YouTube video link"

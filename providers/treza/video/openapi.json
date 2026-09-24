@@ -27,7 +27,7 @@
           }
         },
         "summary": "Generate a video from a prompt or a first frame, paid with x402",
-        "description": "Generates a video from a text prompt, or animates an image_url from its first frame. The paid response returns the video URL when the render finishes within 45 seconds, otherwise a statusUrl to poll. Pay via the x402 protocol (HTTP 402): call without payment to receive a 402 challenge carrying the price and networks, sign the payment with an x402-capable wallet, and retry with the payment-signature header. The challenge lists two ways to pay the same amount: USDC on Base (eip155:8453) first, then USDC on Solana mainnet (solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp); a client pays the first one it has a wallet for, and neither needs gas money in the paying wallet. No account, API key, or signup is involved, so the payment is the only credential. A payment presented again after it was redeemed is refused with a 409 (code PAYMENT_ALREADY_REDEEMED) rather than rendered twice. Price is quoted per request and depends on the model and clip length you pick, so send the model and seconds you want and read the amount off the challenge rather than assuming a fixed figure; GET this path with no parameters for every model and price. Only the documented fields are read; a request carrying any other field is refused with a 400 before any payment moves, so nothing you send can be silently ignored and paid for. An image_url with no model renders on the cheapest model that takes an image at the length you ask for (wan-2.7 for 5 or 10 seconds, kling-3.0 for 15, veo-3.1-lite for 4, 6 or 8 or when you name no length), and the 402 quotes that model's price. The image is fetched and checked before the payment settles, so an image that cannot be used is refused (400, or 413 when it is too large, with a code) with nothing charged.\n\nThe paid call answers 200 at once, with the statusUrl in the X-Status-Url header, then sends a whitespace byte every 2 seconds while it waits (JSON parsers ignore it), and ends with one complete JSON object. By default it waits up to 45 seconds, so the answer lands inside fixed client timeouts such as the 60 seconds MCP tool calls allow. Read status in that body: success carries the video URL; error or partial means the render failed, nothing was charged for it, and retryUrl renders again on the wallet balance the payment left, without paying twice; running means the render is still going, so poll statusUrl. Send Prefer: wait=N to wait up to N seconds instead (at most 720). To get the statusUrl at once, send \"async\": true in the body or the header Prefer: respond-async, and the call answers 202 with a runId and a statusUrl to poll. Preference-Applied echoes the preference that was honoured.",
+        "description": "Generates a video from a text prompt, or animates an image_url from its first frame. The paid response waits about as long as the chosen model usually takes to render and returns the video URL when it is ready, otherwise a statusUrl to poll. Pay via the x402 protocol (HTTP 402): call without payment to receive a 402 challenge carrying the price and networks, sign the payment with an x402-capable wallet, and retry with the payment-signature header. The challenge lists two ways to pay the same amount: USDC on Base (eip155:8453) first, then USDC on Solana mainnet (solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp); a client pays the first one it has a wallet for, and neither needs gas money in the paying wallet. No account, API key, or signup is involved, so the payment is the only credential. A payment presented again after it was redeemed is refused with a 409 (code PAYMENT_ALREADY_REDEEMED) rather than rendered twice. Price is quoted per request and depends on the model and clip length you pick, so send the model and seconds you want and read the amount off the challenge rather than assuming a fixed figure; GET this path with no parameters for every model and price. Only the documented fields are read; a request carrying any other field is refused with a 400 before any payment moves, so nothing you send can be silently ignored and paid for. An image_url with no model renders on the cheapest model that takes an image at the length you ask for (wan-2.7 for 5 or 10 seconds, kling-3.0 for 15, veo-3.1-lite for 4, 6 or 8 or when you name no length), and the 402 quotes that model's price. The image is fetched and checked before the payment settles, so an image that cannot be used is refused (400, or 413 when it is too large, with a code) with nothing charged.\n\nThe paid call answers 200 at once, with the statusUrl in the X-Status-Url header, then sends a whitespace byte every 2 seconds while it waits (JSON parsers ignore it), and ends with one complete JSON object. By default it waits about as long as that model and length usually take to render (at least 45 seconds, from about two minutes for minimax-h3 to about five for Seedance), so a caller that does not poll still gets its video; a client with a fixed timeout, such as the 60 seconds MCP tool calls allow, should send Prefer: wait=N or respond-async, and has the statusUrl in the X-Status-Url header either way. Read status in that body: success carries the video URL; error or partial means the render failed, nothing was charged for it, and retryUrl renders again on the wallet balance the payment left, without paying twice; running means the render is still going, so poll statusUrl. Send Prefer: wait=N to wait up to N seconds instead (at most 720). To get the statusUrl at once, send \"async\": true in the body or the header Prefer: respond-async, and the call answers 202 with a runId and a statusUrl to poll. Preference-Applied echoes the preference that was honoured.",
         "parameters": [
           {
             "name": "Prefer",
@@ -114,7 +114,7 @@
         },
         "responses": {
           "200": {
-            "description": "Payment settled and the response waited for the render, up to 45 seconds by default or the Prefer: wait=N asked for. Streamed: the status and headers are sent at once (X-Status-Url carries the statusUrl), then a whitespace byte every 2 seconds, which JSON parsers ignore, then one complete JSON object. The HTTP status is 200 whatever happened to the render, so read status in the body: success carries video; error or partial carries the failure fields and a retryUrl, and nothing was charged for the render; running means the render is still going (it outlasted the wait, or is being collected from the provider, see note), so poll statusUrl.",
+            "description": "Payment settled and the response waited for the render, by default about as long as that model usually takes (at least 45 seconds), or the Prefer: wait=N asked for. Streamed: the status and headers are sent at once (X-Status-Url carries the statusUrl), then a whitespace byte every 2 seconds, which JSON parsers ignore, then one complete JSON object. The HTTP status is 200 whatever happened to the render, so read status in the body: success carries video; error or partial carries the failure fields and a retryUrl, and nothing was charged for the render; running means the render is still going (it outlasted the wait, or is being collected from the provider, see note), so poll statusUrl.",
             "headers": {
               "X-Status-Url": {
                 "schema": {
@@ -260,6 +260,19 @@
           "202": {
             "description": "Only when the body has \"async\": true or the request carries Prefer: respond-async: payment settled and the render started. Poll statusUrl until status leaves running.",
             "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "The statusUrl again, in the header HTTP clients read on a 202. GET it to collect the result."
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds to wait before polling the statusUrl."
+              },
               "X-Status-Url": {
                 "schema": {
                   "type": "string",
@@ -573,7 +586,7 @@
       "post": {
         "operationId": "x402RetryVideoRun",
         "summary": "Render a failed pay-per-video run again, without paying twice",
-        "description": "A render that failed after the payment settled (the model refused the prompt, or the render did not finish) charged nothing, so the payment is still on the wallet's balance. POST here with the failed run's claim ticket to render again on that balance. Send {\"prompt\": \"...\"} to reword the prompt, which is the fix for prompt_refused; send no body to render the original prompt again. The retry renders the same model, length, aspect ratio, and first frame the failed run was sold. Each failed run can be retried once. Like the paid POST, it waits up to 45 seconds by default (Prefer: wait=N, at most 720) and ends with the result, or with status running and a statusUrl, in the same streamed 200 response; send \"async\": true, or the header Prefer: respond-async, for an immediate 202 with a new runId and statusUrl. A run whose render outlasted its deadline is refused (409) while its clip is being collected.",
+        "description": "A render that failed after the payment settled (the model refused the prompt, or the render did not finish) charged nothing, so the payment is still on the wallet's balance. POST here with the failed run's claim ticket to render again on that balance. Send {\"prompt\": \"...\"} to reword the prompt, which is the fix for prompt_refused; send no body to render the original prompt again. The retry renders the same model, length, aspect ratio, and first frame the failed run was sold. Each failed run can be retried once. Like the paid POST, it waits by default about as long as that model usually takes to render (Prefer: wait=N, at most 720) and ends with the result, or with status running and a statusUrl, in the same streamed 200 response; send \"async\": true, or the header Prefer: respond-async, for an immediate 202 with a new runId and statusUrl. A run whose render outlasted its deadline is refused (409) while its clip is being collected.",
         "parameters": [
           {
             "name": "runId",
@@ -627,7 +640,7 @@
         },
         "responses": {
           "200": {
-            "description": "The retry started and the response waited for it, up to 45 seconds by default, streamed the same way as the paid POST (X-Status-Url header at once, a whitespace byte every 2 seconds, then the JSON). Same shape as the paid POST's 200, plus retryOf (the failed run) and paidUsd 0. Read status in the body: success carries video; running means the render is still going, so poll statusUrl.",
+            "description": "The retry started and the response waited for it, by default about as long as that model usually takes to render, streamed the same way as the paid POST (X-Status-Url header at once, a whitespace byte every 2 seconds, then the JSON). Same shape as the paid POST's 200, plus retryOf (the failed run) and paidUsd 0. Read status in the body: success carries video; running means the render is still going, so poll statusUrl.",
             "headers": {
               "X-Status-Url": {
                 "schema": {
@@ -709,6 +722,28 @@
           },
           "202": {
             "description": "Only with \"async\": true or Prefer: respond-async: the retry started. Same shape as the paid POST's 202, plus retryOf (the failed run) and paidUsd 0.",
+            "headers": {
+              "X-Status-Url": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "The statusUrl, the same as in the body."
+              },
+              "Location": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "The statusUrl again, in the header HTTP clients read on a 202. GET it to collect the result."
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds to wait before polling the statusUrl."
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
