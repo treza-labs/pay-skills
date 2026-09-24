@@ -27,7 +27,7 @@
           }
         },
         "summary": "Generate a video from a prompt or a first frame, paid with x402",
-        "description": "Generates a video from a text prompt, or animates an image_url from its first frame. The paid response waits about as long as the chosen model usually takes to render and returns the video URL when it is ready, otherwise a statusUrl to poll. Pay via the x402 protocol (HTTP 402): call without payment to receive a 402 challenge carrying the price and networks, sign the payment with an x402-capable wallet, and retry with the payment-signature header. The challenge lists two ways to pay the same amount: USDC on Base (eip155:8453) first, then USDC on Solana mainnet (solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp); a client pays the first one it has a wallet for, and neither needs gas money in the paying wallet. No account, API key, or signup is involved, so the payment is the only credential. A payment presented again after it was redeemed is refused with a 409 (code PAYMENT_ALREADY_REDEEMED) rather than rendered twice. Price is quoted per request and depends on the model and clip length you pick, so send the model and seconds you want and read the amount off the challenge rather than assuming a fixed figure; GET this path with no parameters for every model and price. Only the documented fields are read; a request carrying any other field is refused with a 400 before any payment moves, so nothing you send can be silently ignored and paid for. An image_url with no model renders on the cheapest model that takes an image at the length you ask for (wan-2.7 for 5 or 10 seconds, kling-3.0 for 15, veo-3.1-lite for 4, 6 or 8 or when you name no length), and the 402 quotes that model's price. The image is fetched and checked before the payment settles, so an image that cannot be used is refused (400, or 413 when it is too large, with a code) with nothing charged.\n\nThe paid call answers 200 at once, with the statusUrl in the X-Status-Url header, then sends a whitespace byte every 2 seconds while it waits (JSON parsers ignore it), and ends with one complete JSON object. By default it waits about as long as that model and length usually take to render (at least 45 seconds, from about two minutes for minimax-h3 to about five for Seedance), so a caller that does not poll still gets its video; a client with a fixed timeout, such as the 60 seconds MCP tool calls allow, should send Prefer: wait=N or respond-async, and has the statusUrl in the X-Status-Url header either way. Read status in that body: success carries the video URL; error or partial means the render failed, nothing was charged for it, and retryUrl renders again on the wallet balance the payment left, without paying twice; running means the render is still going, so poll statusUrl. Send Prefer: wait=N to wait up to N seconds instead (at most 720). To get the statusUrl at once, send \"async\": true in the body or the header Prefer: respond-async, and the call answers 202 with a runId and a statusUrl to poll. Preference-Applied echoes the preference that was honoured.",
+        "description": "Generates a video from a text prompt, or animates an image_url from its first frame. The paid response waits about as long as the chosen model usually takes to render and returns the video URL when it is ready, otherwise a statusUrl to poll. Pay via the x402 protocol (HTTP 402): call without payment to receive a 402 challenge carrying the price and networks, sign the payment with an x402-capable wallet, and retry with the payment-signature header. The challenge lists two ways to pay the same amount: USDC on Base (eip155:8453) first, then USDC on Solana mainnet (solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp); a client pays the first one it has a wallet for, and neither needs gas money in the paying wallet. No account, API key, or signup is involved, so the payment is the only credential. A payment presented again after it was redeemed is refused with a 409 (code PAYMENT_ALREADY_REDEEMED) rather than rendered twice. Price is quoted per request and depends on the model and clip length you pick, so send the model and seconds you want and read the amount off the challenge rather than assuming a fixed figure; GET this path with no parameters for every model and price. Only the documented fields are read; a request carrying any other field is refused with a 400 before any payment moves, so nothing you send can be silently ignored and paid for. An image_url with no model renders on the cheapest model that takes an image at the length you ask for (wan-2.7 for 5 or 10 seconds, kling-3.0 for 15, veo-3.1-lite for 4, 6 or 8 or when you name no length), and the 402 quotes that model's price. The image is fetched and checked before the payment settles, so an image that cannot be used is refused (400, or 413 when it is too large, with a code) with nothing charged.\n\nThe paid call answers 200 at once, with the statusUrl in the X-Status-Url header, then sends a whitespace byte every 2 seconds while it waits (JSON parsers ignore it), and ends with one complete JSON object. By default it waits about as long as that model and length usually take to render (at least 45 seconds, about two and a half minutes for 5 seconds on minimax-h3, up to about ten for 15 seconds on seedance-2.5), so a caller that does not poll still gets its video; a client with a fixed timeout, such as the 60 seconds MCP tool calls allow, should send Prefer: wait=N or respond-async, and has the statusUrl in the X-Status-Url header either way. Read status in that body: success carries the video URL; error or partial means the render failed, nothing was charged for it, and retryUrl renders again on the wallet balance the payment left, without paying twice; running means the render is still going, so poll statusUrl. Send Prefer: wait=N to wait up to N seconds instead (at most 720). To get the statusUrl at once, send \"async\": true in the body or the header Prefer: respond-async, and the call answers 202 with a runId and a statusUrl to poll. Preference-Applied echoes the preference that was honoured.",
         "parameters": [
           {
             "name": "Prefer",
@@ -36,7 +36,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Optional. respond-async answers 202 at once with a statusUrl to poll, like \"async\": true. wait=N sets how long the call waits for the render, in seconds (default 45, at most 720), before it ends with status running and the statusUrl. Echoed in Preference-Applied."
+            "description": "Optional. respond-async answers 202 at once with a statusUrl to poll, like \"async\": true. wait=N sets how long the call waits for the render, in seconds (at most 720), before it ends with status running and the statusUrl. Without it, the call waits about as long as that model and length usually take to render: at least 45 seconds, about two and a half minutes for 5 seconds on minimax-h3, up to about ten minutes for 15 seconds on seedance-2.5. A client with a fixed timeout, such as the 60 seconds MCP tool calls allow, should send wait=N under it or respond-async. Echoed in Preference-Applied."
           }
         ],
         "requestBody": {
@@ -88,8 +88,7 @@
                       "seedance-2.5",
                       "veo-3.1"
                     ],
-                    "default": "minimax-h3",
-                    "description": "Which video model renders it. Defaults to minimax-h3. With an image_url and no model, the cheapest model that takes an image at the length you ask for: wan-2.7 for 5 or 10 seconds, kling-3.0 for 15, veo-3.1-lite for 4, 6 or 8 or no length. minimax-h3 (MiniMax Hailuo 3, default): 768p with native audio and the fewest prompt refusals; text only, so it cannot take an image_url; $0.42 for 5s, $0.84 for 10s, $1.26 for 15s. veo-3.1-lite (Google Veo 3.1 Lite): Google Veo at its lowest price with native audio, usually ready in about a minute; Google's safety filter returns nothing for some prompts, which is not charged and can be retried; $0.45 for 4s, $0.68 for 6s, $0.90 for 8s. wan-2.7 (Alibaba Wan 2.7): native audio, and the most permissive with photos of real people as a first frame; $0.70 for 5s, $1.40 for 10s. veo-3.1-fast (Google Veo 3.1 Fast): sharper Veo with native audio, typically under two minutes; $0.68 for 4s, $1.01 for 6s, $1.35 for 8s. kling-3.0 (Kling 3.0): 720p with native audio; $0.89 for 5s, $1.77 for 10s, $2.65 for 15s. kling-3.0-pro (Kling 3.0 Pro): Kling's higher-fidelity tier, 720p with native audio; $1.18 for 5s, $2.36 for 10s, $3.53 for 15s. seedance-2.5 (ByteDance Seedance 2.5): 720p with native audio and higher fidelity, with a strict content filter that refuses prompts resembling a brand, a broadcast, or a famous scene, and photos of real people; a refusal is not charged and the response carries a retryUrl; $1.64 for 5s, $3.27 for 10s, $4.90 for 15s. veo-3.1 (Google Veo 3.1): Google's top-fidelity model with synchronized audio, for final shots; $2.24 for 4s, $3.36 for 6s, $4.48 for 8s. Every model except minimax-h3 takes an image_url. GET this path with no parameters for the current list and prices. An unknown value is refused with a 400 before payment."
+                    "description": "Which video model renders it. Without an image_url it defaults to minimax-h3. With an image_url and no model, the cheapest model that takes an image at the length you ask for: wan-2.7 for 5 or 10 seconds, kling-3.0 for 15, veo-3.1-lite for 4, 6 or 8 or no length. minimax-h3 (MiniMax Hailuo 3, default): 768p with native audio and the fewest prompt refusals; text only, so it cannot take an image_url; $0.42 for 5s, $0.84 for 10s, $1.26 for 15s. veo-3.1-lite (Google Veo 3.1 Lite): Google Veo at its lowest price with native audio, usually ready in about a minute; Google's safety filter returns nothing for some prompts, which is not charged and can be retried; $0.45 for 4s, $0.68 for 6s, $0.90 for 8s. wan-2.7 (Alibaba Wan 2.7): native audio, and the most permissive with photos of real people as a first frame; $0.70 for 5s, $1.40 for 10s. veo-3.1-fast (Google Veo 3.1 Fast): sharper Veo with native audio, typically under two minutes; $0.68 for 4s, $1.01 for 6s, $1.35 for 8s. kling-3.0 (Kling 3.0): 720p with native audio; $0.89 for 5s, $1.77 for 10s, $2.65 for 15s. kling-3.0-pro (Kling 3.0 Pro): Kling's higher-fidelity tier, 720p with native audio; $1.18 for 5s, $2.36 for 10s, $3.53 for 15s. seedance-2.5 (ByteDance Seedance 2.5): 720p with native audio and higher fidelity, with a strict content filter that refuses prompts resembling a brand, a broadcast, or a famous scene, and photos of real people; a refusal is not charged and the response carries a retryUrl; $1.64 for 5s, $3.27 for 10s, $4.90 for 15s. veo-3.1 (Google Veo 3.1): Google's top-fidelity model with synchronized audio, for final shots; $2.24 for 4s, $3.36 for 6s, $4.48 for 8s. Every model except minimax-h3 takes an image_url. GET this path with no parameters for the current list and prices. An unknown value is refused with a 400 before payment."
                   },
                   "image_url": {
                     "type": "string",
@@ -467,105 +466,226 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "runId": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "running",
-                        "success",
-                        "partial",
-                        "error",
-                        "cancelled"
+                  "oneOf": [
+                    {
+                      "title": "Run status",
+                      "required": [
+                        "runId",
+                        "status"
                       ],
-                      "example": "success",
-                      "description": "running until the render finishes; success carries the video; partial, error, and cancelled carry the failure fields."
-                    },
-                    "startedAt": {
-                      "type": "string",
-                      "format": "date-time"
-                    },
-                    "finishedAt": {
-                      "type": "string",
-                      "format": "date-time"
-                    },
-                    "durationMs": {
-                      "type": "integer"
-                    },
-                    "pollAfterMs": {
-                      "type": "integer",
-                      "description": "While running: how long to wait before polling again."
-                    },
-                    "video": {
-                      "type": "string",
-                      "format": "uri",
-                      "description": "URL of the finished video. Use it exactly as given: its query parameters, including c=, are part of it."
-                    },
-                    "outputs": {
-                      "type": "object"
-                    },
-                    "error": {
-                      "type": "string",
-                      "description": "Failed runs only. What went wrong, in the provider's words."
-                    },
-                    "failedStep": {
-                      "type": "string",
-                      "description": "Failed runs only. The step that failed, e.g. Video Generation."
-                    },
-                    "reason": {
-                      "type": "string",
-                      "enum": [
-                        "prompt_refused",
-                        "render_failed"
-                      ],
-                      "description": "Failed runs only. prompt_refused: the model declined the prompt or image, so reword it. render_failed: the render did not finish; the same prompt may succeed."
-                    },
-                    "retryable": {
-                      "type": "boolean",
-                      "description": "Failed runs only. True until the run's one free retry has been used, then false."
-                    },
-                    "retryUrl": {
-                      "type": "string",
-                      "format": "uri",
-                      "description": "Failed runs only, until retried. POST here to render again on the wallet balance, optionally with {\"prompt\": \"...\"} in the body. Carries the same signed ticket."
-                    },
-                    "retriedBy": {
                       "type": "object",
-                      "description": "Failed runs only, once retried: the retry. Poll its statusUrl for the result.",
                       "properties": {
                         "runId": {
                           "type": "string"
                         },
-                        "statusUrl": {
+                        "status": {
                           "type": "string",
-                          "format": "uri"
+                          "enum": [
+                            "running",
+                            "success",
+                            "partial",
+                            "error",
+                            "cancelled"
+                          ],
+                          "example": "success",
+                          "description": "running until the render finishes; success carries the video; partial, error, and cancelled carry the failure fields."
+                        },
+                        "startedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "finishedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "durationMs": {
+                          "type": "integer"
+                        },
+                        "pollAfterMs": {
+                          "type": "integer",
+                          "description": "While running: how long to wait before polling again."
+                        },
+                        "video": {
+                          "type": "string",
+                          "format": "uri",
+                          "description": "URL of the finished video. Use it exactly as given: its query parameters, including c=, are part of it."
+                        },
+                        "outputs": {
+                          "type": "object"
+                        },
+                        "error": {
+                          "type": "string",
+                          "description": "Failed runs only. What went wrong, in the provider's words."
+                        },
+                        "failedStep": {
+                          "type": "string",
+                          "description": "Failed runs only. The step that failed, e.g. Video Generation."
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "prompt_refused",
+                            "render_failed"
+                          ],
+                          "description": "Failed runs only. prompt_refused: the model declined the prompt or image, so reword it. render_failed: the render did not finish; the same prompt may succeed."
+                        },
+                        "retryable": {
+                          "type": "boolean",
+                          "description": "Failed runs only. True until the run's one free retry has been used, then false."
+                        },
+                        "retryUrl": {
+                          "type": "string",
+                          "format": "uri",
+                          "description": "Failed runs only, until retried. POST here to render again on the wallet balance, optionally with {\"prompt\": \"...\"} in the body. Carries the same signed ticket."
+                        },
+                        "retriedBy": {
+                          "type": "object",
+                          "description": "Failed runs only, once retried: the retry. Poll its statusUrl for the result.",
+                          "properties": {
+                            "runId": {
+                              "type": "string"
+                            },
+                            "statusUrl": {
+                              "type": "string",
+                              "format": "uri"
+                            }
+                          }
+                        },
+                        "retriedByRunId": {
+                          "type": "string",
+                          "description": "Failed runs only, once retried: the run the retry started (also retriedBy.runId)."
+                        },
+                        "note": {
+                          "type": "string",
+                          "description": "Set while a render that outlasted its deadline is being collected from the provider: status stays running until the clip arrives, then turns success with the video."
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "Failed runs only. What happened and what to do, in one sentence."
+                        },
+                        "balanceUsd": {
+                          "type": "number",
+                          "description": "Failed runs only. Credit left on the paying wallet, which the retry spends."
+                        },
+                        "retryOf": {
+                          "type": "string",
+                          "description": "Set on a run started by a retry: the failed run it replaces."
                         }
                       }
                     },
-                    "retriedByRunId": {
-                      "type": "string",
-                      "description": "Failed runs only, once retried: the run the retry started (also retriedBy.runId)."
-                    },
-                    "note": {
-                      "type": "string",
-                      "description": "Set while a render that outlasted its deadline is being collected from the provider: status stays running until the clip arrives, then turns success with the video."
-                    },
-                    "message": {
-                      "type": "string",
-                      "description": "Failed runs only. What happened and what to do, in one sentence."
-                    },
-                    "balanceUsd": {
-                      "type": "number",
-                      "description": "Failed runs only. Credit left on the paying wallet, which the retry spends."
-                    },
-                    "retryOf": {
-                      "type": "string",
-                      "description": "Set on a run started by a retry: the failed run it replaces."
+                    {
+                      "type": "object",
+                      "title": "Menu",
+                      "description": "Returned when the GET carries no query parameters: what is on sale, the prices, and how to buy.",
+                      "required": [
+                        "service",
+                        "howToBuy",
+                        "fields"
+                      ],
+                      "properties": {
+                        "service": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "howToBuy": {
+                          "type": "object",
+                          "description": "The request to send: method, an example body, and how payment works.",
+                          "properties": {
+                            "method": {
+                              "type": "string"
+                            },
+                            "body": {
+                              "type": "object"
+                            },
+                            "note": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "fields": {
+                          "type": "object",
+                          "description": "Each request field and what it takes.",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "models": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "default": {
+                                "type": "boolean"
+                              },
+                              "firstFrame": {
+                                "type": "boolean",
+                                "description": "Whether it takes an image_url."
+                              },
+                              "note": {
+                                "type": "string",
+                                "description": "What it is for."
+                              },
+                              "prices": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "seconds": {
+                                      "type": "number"
+                                    },
+                                    "priceUsd": {
+                                      "type": "number"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "offers": {
+                          "type": "array",
+                          "description": "Every model, length and aspect ratio on sale, with its price.",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "model": {
+                                "type": "string"
+                              },
+                              "seconds": {
+                                "type": "number"
+                              },
+                              "aspectRatio": {
+                                "type": "string"
+                              },
+                              "priceUsd": {
+                                "type": "number"
+                              }
+                            }
+                          }
+                        },
+                        "limits": {
+                          "type": "object",
+                          "description": "maxPromptChars, and the seconds, aspectRatio and model values on sale."
+                        },
+                        "delivery": {
+                          "type": "string",
+                          "description": "How the paid call answers and where the file ends up."
+                        },
+                        "alreadyPaid": {
+                          "type": "string",
+                          "description": "Where a file already paid for can be collected, for a buyer that lost its statusUrl."
+                        }
+                      }
                     }
-                  }
+                  ]
                 }
               }
             }
@@ -613,7 +733,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Optional. respond-async answers 202 at once; wait=N sets how long the call waits for the render, in seconds (default 45, at most 720)."
+            "description": "Optional. respond-async answers 202 at once; wait=N sets how long the call waits for the render, in seconds (at most 720). Without it, the call waits about as long as that model and length usually take to render, as the paid POST does, which can be several minutes."
           }
         ],
         "requestBody": {

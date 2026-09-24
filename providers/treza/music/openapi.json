@@ -224,6 +224,12 @@
                   "type": "integer"
                 },
                 "description": "Seconds to wait before polling the statusUrl."
+              },
+              "Preference-Applied": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "respond-async, when that header asked for the 202."
               }
             },
             "content": {
@@ -314,97 +320,181 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "runId": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "success",
-                        "error",
-                        "partial",
-                        "cancelled",
-                        "running"
+                  "oneOf": [
+                    {
+                      "title": "Run status",
+                      "required": [
+                        "runId",
+                        "status"
                       ],
-                      "example": "success",
-                      "description": "success carries audio. error, partial, and cancelled carry the failure fields. running means it is still going; poll statusUrl."
+                      "type": "object",
+                      "properties": {
+                        "runId": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "success",
+                            "error",
+                            "partial",
+                            "cancelled",
+                            "running"
+                          ],
+                          "example": "success",
+                          "description": "success carries audio. error, partial, and cancelled carry the failure fields. running means it is still going; poll statusUrl."
+                        },
+                        "startedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "finishedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "durationMs": {
+                          "type": "integer"
+                        },
+                        "audio": {
+                          "type": "string",
+                          "format": "uri",
+                          "description": "URL of the finished track. Use it exactly as given: its query parameters, including c=, are part of it."
+                        },
+                        "statusUrl": {
+                          "type": "string",
+                          "format": "uri",
+                          "description": "The run's status, now and later. It carries its own signed claim ticket, so it needs no other credential. Use it exactly as given: the runId contains '#', encoded as %23."
+                        },
+                        "pollAfterMs": {
+                          "type": "integer",
+                          "description": "Only when status is running: how long to wait before polling statusUrl."
+                        },
+                        "paidUsd": {
+                          "type": "number",
+                          "description": "What this request cost."
+                        },
+                        "model": {
+                          "type": "string"
+                        },
+                        "network": {
+                          "type": "string",
+                          "description": "Where the payment settled: eip155:8453 (Base) or solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp (Solana)."
+                        },
+                        "transaction": {
+                          "type": "string",
+                          "description": "The settled payment: a 0x transaction hash on Base, a base58 transaction signature on Solana."
+                        },
+                        "payer": {
+                          "type": "string",
+                          "description": "The paying wallet."
+                        },
+                        "error": {
+                          "type": "string",
+                          "description": "Failed runs only. What went wrong, in the provider's words."
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "prompt_refused",
+                            "render_failed"
+                          ],
+                          "description": "Failed runs only. prompt_refused: the model declined the prompt, so reword it. render_failed: it did not finish; the same prompt may succeed."
+                        },
+                        "retryable": {
+                          "type": "boolean",
+                          "description": "Failed runs only. True until the run's one free retry has been used."
+                        },
+                        "retryUrl": {
+                          "type": "string",
+                          "format": "uri",
+                          "description": "Failed runs only. POST here to try again on the wallet balance, optionally with {\"prompt\": \"...\"} in the body. Carries the same signed ticket."
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "Failed runs only. What happened and what to do, in one sentence."
+                        },
+                        "balanceUsd": {
+                          "type": "number",
+                          "description": "Failed runs only. The wallet balance the retry spends."
+                        }
+                      }
                     },
-                    "startedAt": {
-                      "type": "string",
-                      "format": "date-time"
-                    },
-                    "finishedAt": {
-                      "type": "string",
-                      "format": "date-time"
-                    },
-                    "durationMs": {
-                      "type": "integer"
-                    },
-                    "audio": {
-                      "type": "string",
-                      "format": "uri",
-                      "description": "URL of the finished track. Use it exactly as given: its query parameters, including c=, are part of it."
-                    },
-                    "statusUrl": {
-                      "type": "string",
-                      "format": "uri",
-                      "description": "The run's status, now and later. It carries its own signed claim ticket, so it needs no other credential. Use it exactly as given: the runId contains '#', encoded as %23."
-                    },
-                    "pollAfterMs": {
-                      "type": "integer",
-                      "description": "Only when status is running: how long to wait before polling statusUrl."
-                    },
-                    "paidUsd": {
-                      "type": "number",
-                      "description": "What this request cost."
-                    },
-                    "model": {
-                      "type": "string"
-                    },
-                    "network": {
-                      "type": "string",
-                      "description": "Where the payment settled: eip155:8453 (Base) or solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp (Solana)."
-                    },
-                    "transaction": {
-                      "type": "string",
-                      "description": "The settled payment: a 0x transaction hash on Base, a base58 transaction signature on Solana."
-                    },
-                    "payer": {
-                      "type": "string",
-                      "description": "The paying wallet."
-                    },
-                    "error": {
-                      "type": "string",
-                      "description": "Failed runs only. What went wrong, in the provider's words."
-                    },
-                    "reason": {
-                      "type": "string",
-                      "enum": [
-                        "prompt_refused",
-                        "render_failed"
+                    {
+                      "type": "object",
+                      "title": "Menu",
+                      "description": "Returned when the GET carries no query parameters: what is on sale, the prices, and how to buy.",
+                      "required": [
+                        "service",
+                        "howToBuy",
+                        "fields"
                       ],
-                      "description": "Failed runs only. prompt_refused: the model declined the prompt, so reword it. render_failed: it did not finish; the same prompt may succeed."
-                    },
-                    "retryable": {
-                      "type": "boolean",
-                      "description": "Failed runs only. True until the run's one free retry has been used."
-                    },
-                    "retryUrl": {
-                      "type": "string",
-                      "format": "uri",
-                      "description": "Failed runs only. POST here to try again on the wallet balance, optionally with {\"prompt\": \"...\"} in the body. Carries the same signed ticket."
-                    },
-                    "message": {
-                      "type": "string",
-                      "description": "Failed runs only. What happened and what to do, in one sentence."
-                    },
-                    "balanceUsd": {
-                      "type": "number",
-                      "description": "Failed runs only. The wallet balance the retry spends."
+                      "properties": {
+                        "service": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "howToBuy": {
+                          "type": "object",
+                          "description": "The request to send: method, an example body, and how payment works.",
+                          "properties": {
+                            "method": {
+                              "type": "string"
+                            },
+                            "body": {
+                              "type": "object"
+                            },
+                            "note": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "fields": {
+                          "type": "object",
+                          "description": "Each request field and what it takes.",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "models": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "default": {
+                                "type": "boolean"
+                              },
+                              "note": {
+                                "type": "string"
+                              },
+                              "priceUsd": {
+                                "type": "number"
+                              }
+                            }
+                          }
+                        },
+                        "limits": {
+                          "type": "object",
+                          "description": "maxPromptChars."
+                        },
+                        "delivery": {
+                          "type": "string",
+                          "description": "How the paid call answers and where the file ends up."
+                        },
+                        "alreadyPaid": {
+                          "type": "string",
+                          "description": "Where a file already paid for can be collected, for a buyer that lost its statusUrl."
+                        }
+                      }
                     }
-                  }
+                  ]
                 }
               }
             }
@@ -479,7 +569,22 @@
         },
         "responses": {
           "200": {
-            "description": "The retry started and the response waited for it, streamed the same way as the paid POST. Same shape as the paid POST 200, plus retryOf and paidUsd 0."
+            "description": "The retry started and the response waited for it, streamed the same way as the paid POST. Same shape as the paid POST 200, plus retryOf and paidUsd 0.",
+            "headers": {
+              "X-Status-Url": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "description": "The retry's statusUrl, sent before the render finishes."
+              },
+              "Preference-Applied": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "The Prefer value honoured, e.g. wait=120 or respond-async."
+              }
+            }
           },
           "202": {
             "description": "Only with \"async\": true or Prefer: respond-async: the retry started.",
@@ -503,6 +608,49 @@
                   "type": "integer"
                 },
                 "description": "Seconds to wait before polling the statusUrl."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "runId": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "example": "running"
+                    },
+                    "statusUrl": {
+                      "type": "string",
+                      "format": "uri",
+                      "description": "Poll this for the finished file. It carries its own signed claim ticket, so it needs no other credential. Use it exactly as given."
+                    },
+                    "pollAfterMs": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Paid for and still rendering: how to collect it. Do not buy it again."
+                    },
+                    "retryOf": {
+                      "type": "string",
+                      "description": "The failed run this retry replaces."
+                    },
+                    "paidUsd": {
+                      "type": "number",
+                      "example": 0
+                    },
+                    "model": {
+                      "type": "string"
+                    },
+                    "balanceUsd": {
+                      "type": "number",
+                      "description": "Credit left on the paying wallet once this render is funded."
+                    }
+                  }
+                }
               }
             }
           },
